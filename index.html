@@ -10,7 +10,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <script>
     tailwind.config = {
-      darkMode: 'class',
       theme: {
         extend: {
           fontFamily: {
@@ -22,37 +21,40 @@
     }
   </script>
   <style>
-    .timezone-card {
-      backdrop-filter: blur(10px);
+    .slot-row {
+      transition: all 0.15s ease;
     }
-    .hour-marker {
-      transition: all 0.2s ease;
+    .slot-row:active {
+      transform: scale(0.98);
     }
-    .current-time-line {
-      animation: pulse 2s infinite;
+    .good-meeting {
+      background: linear-gradient(135deg, rgba(34, 197, 94, 0.12) 0%, rgba(34, 197, 94, 0.08) 100%);
+      border-left: 3px solid rgb(34, 197, 94);
     }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.7; }
+    .current-hour {
+      background: rgba(59, 130, 246, 0.15);
+      border-left: 3px solid rgb(59, 130, 246);
     }
-    .overlap-zone {
-      background: linear-gradient(90deg, rgba(34, 197, 94, 0.2) 0%, rgba(34, 197, 94, 0.3) 50%, rgba(34, 197, 94, 0.2) 100%);
+    .time-badge {
+      min-width: 60px;
     }
   </style>
 </head>
-<body class="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 min-h-screen font-sans text-white">
+<body class="bg-slate-900 min-h-screen font-sans text-white pb-20">
   
-  <!-- Header -->
-  <header class="border-b border-slate-700/50 bg-slate-900/50 backdrop-blur-sm sticky top-0 z-50">
-    <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <div class="text-2xl">🧸</div>
-        <h1 class="text-xl font-bold">TZ Sync</h1>
-      </div>
-      <div class="flex items-center gap-4">
-        <span class="text-sm text-slate-400" id="currentDate"></span>
-        <button onclick="toggleSettings()" class="p-2 hover:bg-slate-700 rounded-lg transition">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <!-- Fixed Header -->
+  <header class="fixed top-0 left-0 right-0 z-50 bg-slate-900/95 backdrop-blur-sm border-b border-slate-800">
+    <div class="px-4 py-3">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="text-2xl">🧸</span>
+          <div>
+            <h1 class="text-lg font-bold">TZ Sync</h1>
+            <p class="text-xs text-slate-500" id="currentDate"></p>
+          </div>
+        </div>
+        <button onclick="openSettings()" class="p-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl transition">
+          <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
           </svg>
@@ -61,104 +63,126 @@
     </div>
   </header>
 
-  <!-- Main Content -->
-  <main class="max-w-7xl mx-auto px-4 py-8">
-    
-    <!-- Timezone Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8" id="timezoneCards">
-      <!-- Cards will be injected by JS -->
+  <!-- Current Time Cards - Horizontal Scroll on Mobile -->
+  <section class="pt-20 px-4 py-4">
+    <div class="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 snap-x snap-mandatory" id="currentTimeCards">
+      <!-- Injected by JS -->
     </div>
+    <!-- Legend -->
+    <div class="flex items-center gap-4 mt-3 text-xs text-slate-500">
+      <div class="flex items-center gap-1.5">
+        <span class="w-2 h-2 rounded-full bg-green-500"></span>
+        <span>Good for all</span>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+        <span>Now</span>
+      </div>
+    </div>
+  </section>
 
-    <!-- Timeline View -->
-    <div class="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-semibold">24-Hour Timeline</h2>
-        <div class="flex items-center gap-2 text-sm">
-          <span class="w-3 h-3 rounded bg-green-500/30"></span>
-          <span class="text-slate-400">Good meeting hours (9AM-6PM overlap)</span>
-        </div>
+  <!-- Vertical Timeline -->
+  <section class="px-4">
+    <div class="bg-slate-800/30 rounded-2xl border border-slate-700/50 overflow-hidden">
+      <!-- Timeline Header -->
+      <div class="px-4 py-3 border-b border-slate-700/50 bg-slate-800/50">
+        <h2 class="font-semibold">Today's Hours</h2>
       </div>
       
-      <!-- Timeline -->
-      <div class="relative" id="timeline">
-        <!-- Hour labels -->
-        <div class="flex justify-between text-xs text-slate-500 mb-2">
-          <span>00:00</span>
-          <span>06:00</span>
-          <span>12:00</span>
-          <span>18:00</span>
-          <span>24:00</span>
-        </div>
-        
-        <!-- Timeline rows will be injected by JS -->
-        <div id="timelineRows" class="space-y-3">
-        </div>
-        
-        <!-- Current time indicator -->
-        <div id="currentTimeIndicator" class="absolute top-0 bottom-0 w-0.5 bg-red-500 current-time-line" style="left: 50%;">
-          <div class="absolute -top-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-red-500 rounded-full"></div>
-        </div>
+      <!-- Timeline Rows -->
+      <div id="timelineSlots" class="divide-y divide-slate-700/30">
+        <!-- Injected by JS -->
       </div>
     </div>
+  </section>
 
-    <!-- Quick Reference -->
-    <div class="mt-8 bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50">
-      <h2 class="text-lg font-semibold mb-4">🕐 Quick Reference</h2>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="quickReference">
-        <!-- Will be injected by JS -->
-      </div>
-    </div>
-
-  </main>
-
-  <!-- Settings Modal -->
-  <div id="settingsModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
-    <div class="bg-slate-800 rounded-2xl p-6 max-w-md w-full border border-slate-700">
-      <div class="flex items-center justify-between mb-6">
-        <h2 class="text-xl font-bold">Settings</h2>
-        <button onclick="toggleSettings()" class="p-2 hover:bg-slate-700 rounded-lg">
+  <!-- Slot Details Modal -->
+  <div id="slotModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <div class="bg-slate-800 rounded-2xl w-full max-w-sm border border-slate-700 shadow-2xl">
+      <div class="px-5 py-4 border-b border-slate-700 flex items-center justify-between">
+        <h3 class="font-semibold">Meeting Time</h3>
+        <button onclick="closeSlotModal()" class="p-2 hover:bg-slate-700 rounded-lg transition -mr-2">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
           </svg>
         </button>
       </div>
-      
-      <div class="space-y-4">
-        <div>
-          <label class="block text-sm font-medium text-slate-300 mb-2">Your Timezone</label>
-          <select id="tz1" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white">
-            <option value="auto">Auto-detect</option>
+      <div class="p-5 space-y-4" id="slotModalContent">
+        <!-- Injected by JS -->
+      </div>
+      <div class="px-5 py-4 border-t border-slate-700 flex gap-3">
+        <button onclick="copySlotDetails()" class="flex-1 py-3 bg-slate-700 hover:bg-slate-600 rounded-xl font-medium transition flex items-center justify-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+          </svg>
+          Copy
+        </button>
+        <button onclick="closeSlotModal()" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 rounded-xl font-medium transition">
+          Done
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="settingsModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <div class="bg-slate-800 rounded-2xl w-full max-w-sm border border-slate-700 shadow-2xl max-h-[85vh] flex flex-col">
+      <div class="px-5 py-4 border-b border-slate-700 flex items-center justify-between flex-shrink-0">
+        <h3 class="font-semibold">Configure Zones</h3>
+        <button onclick="closeSettings()" class="p-2 hover:bg-slate-700 rounded-lg transition -mr-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+      <div class="p-5 overflow-y-auto flex-1 space-y-5" id="settingsContent">
+        <!-- Zone 1 -->
+        <div class="space-y-2">
+          <label class="block text-sm font-medium text-slate-300">Your Zone</label>
+          <select id="tz1Select" class="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
           </select>
         </div>
         
-        <div>
-          <label class="block text-sm font-medium text-slate-300 mb-2">Timezone 2 (HK/Singapore)</label>
-          <select id="tz2" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white">
-            <option value="Asia/Singapore">Singapore</option>
-            <option value="Asia/Hong_Kong">Hong Kong</option>
+        <!-- Zone 2 -->
+        <div class="space-y-2">
+          <label class="block text-sm font-medium text-slate-300">Zone 2</label>
+          <select id="tz2Select" class="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
           </select>
         </div>
         
-        <div>
-          <label class="block text-sm font-medium text-slate-300 mb-2">Timezone 3 (CET)</label>
-          <select id="tz3" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white">
-            <option value="Europe/Berlin">Berlin (CET/CEST)</option>
-            <option value="Europe/Paris">Paris (CET/CEST)</option>
-            <option value="Europe/Amsterdam">Amsterdam (CET/CEST)</option>
-            <option value="Europe/Zurich">Zurich (CET/CEST)</option>
+        <!-- Zone 3 -->
+        <div class="space-y-2">
+          <label class="block text-sm font-medium text-slate-300">Zone 3</label>
+          <select id="tz3Select" class="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
           </select>
+        </div>
+
+        <!-- Work Hours -->
+        <div class="space-y-2 pt-4 border-t border-slate-700">
+          <label class="block text-sm font-medium text-slate-300">Work Hours</label>
+          <div class="flex items-center gap-3">
+            <select id="workStart" class="flex-1 bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </select>
+            <span class="text-slate-500">to</span>
+            <select id="workEnd" class="flex-1 bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </select>
+          </div>
         </div>
       </div>
-      
-      <button onclick="saveSettings()" class="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition">
-        Save Settings
-      </button>
+      <div class="px-5 py-4 border-t border-slate-700 flex gap-3 flex-shrink-0">
+        <button onclick="closeSettings()" class="flex-1 py-3 bg-slate-700 hover:bg-slate-600 rounded-xl font-medium transition">
+          Cancel
+        </button>
+        <button onclick="saveSettings()" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 rounded-xl font-medium transition">
+          Save
+        </button>
+      </div>
     </div>
   </div>
 
   <!-- Footer -->
-  <footer class="border-t border-slate-700/50 mt-12 py-6 text-center text-slate-500 text-sm">
-    <p>TZ Sync • Built by Little Bear 🐻 • <a href="https://github.com/little0xbear/tz-sync" class="hover:text-white transition">GitHub</a></p>
+  <footer class="fixed bottom-0 left-0 right-0 py-3 text-center text-slate-600 text-xs bg-slate-900/90 border-t border-slate-800">
+    Built by Little Bear 🐻
   </footer>
 
   <script src="app.js"></script>
