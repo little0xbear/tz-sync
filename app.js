@@ -38,6 +38,7 @@ const TIMEZONES = [
 // State
 let settings = { ...DEFAULT_SETTINGS };
 let selectedSlot = null;
+let selectedDate = null; // null = today, or Date object for custom date
 let updateInterval;
 
 // Initialize
@@ -127,19 +128,43 @@ function getHourInTimezone(date, timezone) {
   }).format(date));
 }
 
-// Get offset string
+// Get offset string (GMT+XX format)
 function getOffsetString(timezone, date = new Date()) {
   try {
     const tzDate = new Date(date.toLocaleString('en-US', { timeZone: timezone }));
     const utcDate = new Date(date.toLocaleString('en-US', { timeZone: 'UTC' }));
     const diff = (tzDate - utcDate) / (1000 * 60 * 60);
-    const sign = diff >= 0 ? '+' : '';
+    const sign = diff >= 0 ? '+' : '-';
     const hours = Math.floor(Math.abs(diff));
     const mins = Math.round((Math.abs(diff) % 1) * 60);
-    return `${sign}${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+    // Return GMT+7 or GMT+5:30 format
+    if (mins === 0) {
+      return `GMT${sign}${hours}`;
+    }
+    return `GMT${sign}${hours}:${mins.toString().padStart(2, '0')}`;
   } catch {
-    return '+00:00';
+    return 'GMT+0';
   }
+}
+
+// Get the effective date (today or selected date)
+function getEffectiveDate() {
+  return selectedDate || new Date();
+}
+
+// Format date for display
+function formatDateDisplay(date) {
+  return date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
+}
+
+// Format date for date input (YYYY-MM-DD)
+function formatDateInput(date) {
+  return date.toISOString().split('T')[0];
 }
 
 // Check if hour is in work hours
@@ -149,14 +174,14 @@ function isWorkHour(hour) {
 
 // Update display
 function updateDisplay() {
-  const now = new Date();
+  const now = getEffectiveDate();
+  const isToday = !selectedDate;
   
   // Update date header
-  document.getElementById('currentDate').textContent = now.toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric'
-  });
+  document.getElementById('currentDate').textContent = formatDateDisplay(now);
+  
+  // Update date button text
+  document.getElementById('selectedDateBtn').textContent = isToday ? 'Today' : now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   
   const tz1 = getResolvedTimezone(settings.tz1);
   const tz2 = getResolvedTimezone(settings.tz2);
@@ -175,6 +200,8 @@ function updateDisplay() {
 // Update horizontal scrollable time cards
 function updateCurrentTimeCards(now, zones) {
   const container = document.getElementById('currentTimeCards');
+  const isToday = !selectedDate;
+  const currentHour = isToday ? new Date().getHours() : -1;
   
   container.innerHTML = zones.map(({ tz, info }) => {
     const time = formatTime(now, tz);
@@ -187,7 +214,7 @@ function updateCurrentTimeCards(now, zones) {
         <div class="text-xs text-slate-500 mb-1 truncate">${info.city}</div>
         <div class="text-2xl font-mono font-medium">${time}</div>
         <div class="flex items-center justify-between mt-2">
-          <span class="text-xs text-slate-500">UTC${offset}</span>
+          <span class="text-xs font-medium text-blue-400">${offset}</span>
           ${isGood ? '<span class="w-2 h-2 rounded-full bg-green-500"></span>' : '<span class="w-2 h-2 rounded-full bg-slate-600"></span>'}
         </div>
       </div>
@@ -198,7 +225,8 @@ function updateCurrentTimeCards(now, zones) {
 // Update vertical timeline
 function updateTimeline(now, zones) {
   const container = document.getElementById('timelineSlots');
-  const currentHour = now.getHours();
+  const isToday = !selectedDate;
+  const currentHour = isToday ? new Date().getHours() : -1;
   
   let html = '';
   
@@ -252,7 +280,7 @@ function updateTimeline(now, zones) {
 
 // Open slot details modal
 function openSlotModal(hour) {
-  const now = new Date();
+  const now = getEffectiveDate();
   const testDate = new Date(now);
   testDate.setHours(hour, 0, 0, 0);
   
@@ -263,24 +291,29 @@ function openSlotModal(hour) {
   ];
   
   const label = hour === 0 ? '12 AM' : hour < 12 ? `${hour} AM` : hour === 12 ? '12 PM' : `${hour - 12} PM`;
+  const dateStr = formatDateDisplay(testDate);
   
-  selectedSlot = { hour, zones, label };
+  selectedSlot = { hour, zones, label, dateStr };
   
   document.getElementById('slotModalContent').innerHTML = `
     <div class="text-center mb-4">
       <div class="text-2xl font-bold">${label}</div>
-      <div class="text-sm text-slate-400">Your local time</div>
+      <div class="text-sm text-slate-400">${dateStr}</div>
     </div>
     <div class="space-y-3">
       ${zones.map(({ tz, info }) => {
         const timeThere = formatTime(testDate, tz);
         const hourThere = getHourInTimezone(testDate, tz);
         const isGood = isWorkHour(hourThere);
+        const offset = getOffsetString(tz, testDate);
         return `
           <div class="flex items-center justify-between p-3 bg-slate-700/30 rounded-xl">
             <div class="flex items-center gap-3">
               <span class="text-lg">${info.label.split(' ')[0]}</span>
-              <span class="text-slate-300">${info.city}</span>
+              <div>
+                <div class="text-slate-300">${info.city}</div>
+                <div class="text-xs text-blue-400">${offset}</div>
+              </div>
             </div>
             <div class="text-right">
               <div class="font-mono text-lg ${isGood ? 'text-green-400' : 'text-white'}">${timeThere}</div>
@@ -345,4 +378,50 @@ document.getElementById('slotModal').addEventListener('click', (e) => {
 
 document.getElementById('settingsModal').addEventListener('click', (e) => {
   if (e.target === e.currentTarget) closeSettings();
+});
+
+// Date picker functions
+function openDatePicker() {
+  const dateInput = document.getElementById('dateInput');
+  dateInput.value = formatDateInput(getEffectiveDate());
+  document.getElementById('datePickerModal').classList.remove('hidden');
+  document.getElementById('datePickerModal').classList.add('flex');
+}
+
+function closeDatePicker() {
+  document.getElementById('datePickerModal').classList.add('hidden');
+  document.getElementById('datePickerModal').classList.remove('flex');
+}
+
+function applyDate() {
+  const dateInput = document.getElementById('dateInput');
+  const selectedDateStr = dateInput.value;
+  
+  if (selectedDateStr) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const picked = new Date(selectedDateStr + 'T00:00:00');
+    
+    // If today, set to null (live time)
+    if (picked.getTime() === today.getTime()) {
+      selectedDate = null;
+    } else {
+      selectedDate = picked;
+    }
+  }
+  
+  closeDatePicker();
+  updateDisplay();
+}
+
+function resetToToday() {
+  selectedDate = null;
+  closeDatePicker();
+  updateDisplay();
+}
+
+// Close date picker on backdrop click
+document.getElementById('datePickerModal').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeDatePicker();
 });
